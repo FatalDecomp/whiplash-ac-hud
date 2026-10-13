@@ -24,6 +24,9 @@ Two apps:
 | **Whiplash HUD** | the overlay. No window furniture, nothing to click. |
 | **Whiplash HUD Setup** | an ordinary AC window with the knobs on it. |
 
+> **Installing it?** [INSTALL.md](INSTALL.md) is the step-by-step guide,
+> in Finnish and then English. What follows here is the short version.
+
 ## Install
 
 1. Bake the art from your FATDATA:

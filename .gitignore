@@ -1,0 +1,9 @@
+# The baked art is retail game data. It is produced on the machine that owns
+# a copy of Whiplash and it never goes any further than that -- tools/bake.py
+# writes it, and nothing here distributes it.
+apps/python/whiplash_hud/tex/
+*.png
+
+# Anything the preview writes is the same art, one step further on.
+*.pyc
+__pycache__/

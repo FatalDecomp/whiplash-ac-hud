@@ -265,3 +265,8 @@ SCREEN is wrong. See step 5.
 
 **Text and gauges look blurry.**
 SIZE is set to a scale you did not bake. Put it back to `AUTO`.
+
+---
+
+Taking it apart rather than using it? [TECHNICAL.md](TECHNICAL.md)
+explains how the Python works.

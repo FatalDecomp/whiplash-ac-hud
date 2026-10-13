@@ -24,7 +24,7 @@ import ac
 import acsys
 
 APP_NAME = "Whiplash HUD"
-BUILD = "2026-10-13 20:05"      # bumped every build, so the log says which copy is live
+BUILD = "2026-10-13 21:40"      # bumped every build, so the log says which copy is live
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEX = os.path.join(HERE, "tex")
 
@@ -614,20 +614,23 @@ def acUpdate(deltaT):
             else acsys.CS.SpeedMPH)
         _state["gear"] = ac.getCarState(0, acsys.CS.Gear) - 1
         _state["lap"] = ac.getCarState(0, acsys.CS.LapCount) + 1
-        _state["pos"] = ac.getCarLeaderboardPosition(0)
         _state["time"] = ac.getCarState(0, acsys.CS.LapTime) / 1000.0
         _state["best"] = ac.getCarState(0, acsys.CS.BestLap) / 1000.0
-        # The names on the plate's two bars are the cars either side of us in
-        # the standings -- the one we are chasing above, the one chasing us
-        # below -- and INFRONT/BEHIND are the splits to those two.
-        _state["ahead_name"], _state["behind_name"] = _neighbours()
+        # Our place, and the cars either side of us, all out of one order --
+        # so the number on the plate and the two names on its bars can never
+        # disagree. INFRONT/BEHIND are the splits to those same two.
+        order = _standings()
+        _state["pos"], _state["ahead_idx"], _state["behind_idx"] = \
+            _place_in(order)
+        _state["ahead_name"] = _driver(_state["ahead_idx"])
+        _state["behind_name"] = _driver(_state["behind_idx"])
 
         fill = _meter()
         _state["ring"] = 0 if fill is None else max(
             0, min(RING_LEVELS, int(round(fill * RING_LEVELS))))
 
         cars = []
-        for i in range(ac.getCarsCount()):
+        for i in order:
             at = ac.getCarState(i, acsys.CS.WorldPosition)
             spline = ac.getCarState(i, acsys.CS.NormalizedSplinePosition)
             if at:
@@ -638,23 +641,55 @@ def acUpdate(deltaT):
         _log(traceback.format_exc())
 
 
-def _neighbours():
-    """The cars one place ahead and one place behind us in the standings."""
-    mine = ac.getCarLeaderboardPosition(0)
-    ahead_idx = behind_idx = -1
-    for i in range(ac.getCarsCount()):
-        if i == 0:
-            continue
-        place = ac.getCarLeaderboardPosition(i)
-        if place == mine - 1:
-            ahead_idx = i
-        elif place == mine + 1:
-            behind_idx = i
-    _state["ahead_idx"] = ahead_idx
-    _state["behind_idx"] = behind_idx
-    ahead = ac.getDriverName(ahead_idx) if ahead_idx >= 0 else ""
-    behind = ac.getDriverName(behind_idx) if behind_idx >= 0 else ""
-    return (ahead or ""), (behind or "")
+def _standings():
+    """Every car in the session, in the order they are in right now.
+
+    The order comes from `getCarRealTimeLeaderboardPosition`, which the AC
+    documentation calls the car's position "in real-time".
+    `getCarLeaderboardPosition` is the official standing instead, and in a
+    race that only settles as cars cross the line -- overtake someone
+    mid-lap and the number does not move until the lap does. Whiplash's own
+    byRacePosition is live, so this is the one that matches it.
+
+    `getCarsCount` is the session's maximum number of cars, not how many are
+    in it, so the empty slots go: left in, they sit in the order and push
+    everyone below them down a place. If that filter leaves us out of our
+    own session it is telling us nothing, so then nothing is filtered.
+    """
+    count = ac.getCarsCount()
+    cars = [car for car in range(count) if ac.isConnected(car)]
+    if 0 not in cars:
+        cars = list(range(count))
+
+    field = []
+    for car in cars:
+        place = ac.getCarRealTimeLeaderboardPosition(car)
+        if place is None or place < 0:
+            place = ac.getCarLeaderboardPosition(car)
+        field.append((place, car))
+    field.sort()
+    return [car for _place, car in field]
+
+
+def _place_in(order):
+    """Our place, and the cars either side of us, read off the order itself.
+
+    Counting along the order rather than trusting the number AC hands back
+    means it does not matter whether AC counts positions from 0 or from 1:
+    first in the list is first, and the entries either side are the car we
+    are chasing and the one chasing us.
+    """
+    try:
+        at = order.index(0)
+    except ValueError:
+        return 1, -1, -1
+    ahead = order[at - 1] if at > 0 else -1
+    behind = order[at + 1] if at + 1 < len(order) else -1
+    return at + 1, ahead, behind
+
+
+def _driver(car):
+    return (ac.getDriverName(car) or "") if car >= 0 else ""
 
 
 def _gaps(cars):

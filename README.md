@@ -1,187 +1,267 @@
-# Whiplash HUD for Assetto Corsa
+# Asennusohje / Install guide
 
-Fatal Racing's dashboard, over AC. The gauge is the retail one: a single
-79x70 sprite whose palette indices encode two instruments at once — indices
-1..48 are the rev arc's steps, indices >= 0x31 are the ring's thirteen zones
-— exactly as `print_damage` in ROLLER's `func2.c` reads it. Everything is
-placed where `test_panel()` in the same file places it.
+Suomeksi ensin. English below.
 
-The art is retail game data, so none of it is in this repository and none of
-it ever will be: `tools/bake.py` reads your own copy of Whiplash's FATDATA
-and writes the textures beside the app, where `.gitignore` keeps them. What
-is here is the code that reads the format and the index numbers it reads it
-by.
+---
 
-The layout and the sprite format both come from
-[ROLLER](https://github.com/FatalDecomp/ROLLER), the C reimplementation of
-Whiplash; `func2.c` is cited throughout, and it is the authority for every
-offset in this project.
+# SUOMEKSI
 
-Two apps:
+Hei Tunari. Tässä on ohje. Lue se järjestyksessä.
 
-| app | what it is |
-| --- | --- |
-| **Whiplash HUD** | the overlay. No window furniture, nothing to click. |
-| **Whiplash HUD Setup** | an ordinary AC window with the knobs on it. |
+Kuvat eivät tule mukana. Sinun pitää tehdä ne itse omasta Whiplash-pelistäsi.
+Se on vaihe 2. Se tehdään vain kerran.
 
-> **Installing it?** [INSTALL.md](INSTALL.md) is the step-by-step guide,
-> in Finnish and then English. What follows here is the short version.
+## Mitä tarvitset
 
-## Install
+1. **Assetto Corsa.**
+2. **Whiplash (Fatal Racing) -pelin tiedostot.** Tarvitset kansion **FATDATA**.
+3. **Python 3.** Lataa se osoitteesta python.org. Kun asennat sen, laita
+   rasti kohtaan **"Add Python to PATH"**.
 
-1. Bake the art from your FATDATA:
+FATDATA-kansiossa pitää olla nämä neljä tiedostoa:
 
-   ```
-   python3 tools/bake.py /path/to/FATDATA apps/python/whiplash_hud/tex 2 3 4 6
-   ```
+- `PANEL2.BM`
+- `MINITEXT.BM`
+- `PANCAR1.BM`
+- `PALETTE.PAL`
 
-   The numbers at the end select the scales of HUD to generate. Each one is
-   baked into its own folder — `tex/x2`, `tex/x3` and so on — and the HUD
-   draws from one of them. 3 or 4 for 1080p, 6 or 8 for 4K screen.
+Jos ne löytyvät, kaikki on hyvin.
 
-   The art is enlarged here, with nearest neighbour, because AC has no way
-   to turn texture filtering off for hud elements: the app then draws every sprite at exactly
-   its own size, one texel to one screen pixel, and nothing gets
-   interpolated. That is also why the size is changed by switching folders
-   rather than by scaling a texture — scaling the hud ingame softens the image. Four scales is 145 PNGs each, about 2.5 MB in total.
+## Vaihe 1: Lataa tämä projekti
 
-2. Copy **both** `apps/python/whiplash_hud/` and
-   `apps/python/whiplash_setup/` into your AC install's `apps/python/`
-   folder. The setup app looks for the HUD beside itself.
+Mene GitHubiin. Paina vihreää **Code**-nappia. Valitse **Download ZIP**.
 
-3. Enable **Whiplash HUD** and **Whiplash HUD Setup** in AC's app bar.
+Pura ZIP-tiedosto johonkin kansioon. Esimerkiksi työpöydälle.
 
-## What it shows
+## Vaihe 2: Tee kuvat pelistä
 
-| corner | reading |
-| --- | --- |
-| top left | the position plate: the car ahead, your position, the car behind |
-| top centre | TIME, BEST, INFRONT, BEHIND |
-| top right | the lap plate |
-| bottom left | the track's own map.png, with every car on it |
-| bottom right | the gauge: revs, the ring, speed, gear |
+Avaa kansio, johon purit ZIP-tiedoston. Siellä pitää olla kansiot `apps` ja
+`tools`.
 
-**The position plate** is `PANEL2.BM` block 21, the game's own: two black
-bars with the POS legend between them. The names of the cars either side of
-you in the standings are printed onto those bars, with their places beside
-them, which is what `print_pos` does — not your own name, and not whoever
-happens to be nearest on track. **INFRONT** and **BEHIND** are the splits to
-those same two cars.
+Kirjoita Resurssienhallinnan osoiteriville `cmd` ja paina Enteriä.
+Komentorivi aukeaa.
 
-**Revs** stretch to the car's redline, so the arc always fills and the shift
-point is always the top of it. The 40–90 painted around the dial is therefore
-decoration — no AC car has Whiplash's rev range.
-
-**The ring** was Whiplash's damage meter: thirteen zones that colour up as
-the car gets worse. AC's damage is rarely enabled, so it can be pointed at
-something else from the setup app:
-
-| setting | what fills the ring |
-| --- | --- |
-| `TYRES` | tyre life, across the worst tyre's whole life |
-| `DAMAGE` | AC's own `carDamage`, the worst of its five zones |
-| `FUEL` | fuel used, so a full ring is an empty tank |
-| `TURBO` | boost, as a fraction of the car's maximum |
-
-**The skull** in `PANCAR1.BM` is Whiplash's kill counter and has no meaning
-in AC, so it is not drawn.
-
-## Moving things
-
-The panel's layout lives in one commented block at the top of
-`apps/python/whiplash_hud/whiplash_hud.py`, under `THE LAYOUT`. Every number
-in it is in panel pixels and gets multiplied by the scale, and every one of
-them is `func2.c`'s own, with the screen-edge arithmetic already resolved.
-The ones most likely to want nudging:
-
-| constant | what it moves |
-| --- | --- |
-| `SPEED_X`, `SPEED_Y` | the speed digits, from the dial's top-left corner |
-| `GEAR_X`, `GEAR_Y` | the gear letter in its black slot |
-| `UNIT_X`, `UNIT_Y` | the mph/kmh tag |
-| `DIAL_X`, `DIAL_BOTTOM` | the whole gauge, against the bottom right |
-| `POS_*`, `AHEAD_Y`, `BEHIND_Y`, `NAME_*` | the position plate |
-| `LAP_*` | the lap plate |
-| `CLOCK_Y`, `CLOCK_ROW` | the timing column |
-
-`tools/preview.py` draws the same layout from the same constants without
-starting the game, so a change can be looked at in a second.
-
-## The setup app
-
-Four rows, each written straight into the HUD's `config.ini`, which the HUD
-re-reads twice a second — so every change lands while you are driving.
-
-| row | does |
-| --- | --- |
-| `SCREEN` | the HUD window's size: set this to your display's resolution |
-| `SIZE` | steps through the scales you baked, or AUTO to suit the window |
-| `RING` | TYRE LIFE / DAMAGE / FUEL USED / TURBO |
-| `SPEED` | MPH or KMH — Whiplash has art for both |
-
-**SCREEN is the one that matters first.** The panel anchors to the corners
-of the HUD's own window, so until that window is the size of your display,
-the whole panel sits in a box in one corner of the screen. With the title
-bar hidden there is nothing to drag it by, which is why it is a setting.
-
-There is no "fit automatically": AC's Python API has no call that reports
-the screen size — there is nothing about the display anywhere in it. The
-setup app does read AC's own `cfg/video.ini` and add whatever that says to
-the list, and the log line says whether it found it.
-
-With `SIZE` on AUTO the art then follows: a 1080p window draws at 3x, a 4K
-one at 6x.
-
-`config.ini` is a plain file and can be edited by hand instead; it also
-holds `MARGIN` for extra inset.
-
-## The HUD window
-
-Its background and border are turned off, and its title and icon are pushed
-out of the way, every frame from the render callback:
-
-    ac.drawBackground(CONTROL, 0)   0 transparent, 1 visible
-    ac.drawBorder(CONTROL, 0)       0 no border, 1 draw border
-    ac.setBackgroundOpacity(CONTROL, 0.0)
-
-The documentation does not say these need repeating. In the game they do:
-set once at startup, the background is back by the next frame. That leaves
-nothing to drag the window by, which is what `WIDTH`/`HEIGHT` are for.
-
-## Looking at it without AC
+Kirjoita tämä **yhdelle riville**:
 
 ```
-python3 tools/preview.py /path/to/FATDATA out.png 2560x1080 auto 0.78 6 192 4 7 1
+python tools\bake.py "C:\polku\FATDATA" apps\python\whiplash_hud\tex 2 3 4 6
 ```
 
-Arguments after the size are scale (or `auto`), revs 0..1, ring 0..13, speed,
-gear, lap, position. The preview draws on mid grey on purpose: over the game
-index 0 is see-through and index 112 — which the art outlines with — is
-black, so on a black test ground both vanish and the panel looks full of
-holes.
+Laita oman FATDATA-kansiosi polku lainausmerkkien väliin.
+
+Numerot `2 3 4 6` ovat kokoja. Ohjelma tekee neljä eri kokoa. Voit vaihtaa
+kokoa myöhemmin pelin sisällä. Älä poista numeroita.
+
+Kun ohjelma on valmis, se sanoo näin:
 
 ```
-python3 tools/dryrun.py
+145 textures at 2x in apps\python\whiplash_hud\tex\x2
+145 textures at 3x in apps\python\whiplash_hud\tex\x3
+145 textures at 4x in apps\python\whiplash_hud\tex\x4
+145 textures at 6x in apps\python\whiplash_hud\tex\x6
 ```
 
-runs both apps against a fake `ac` module: every entry point, every button
-clicked once, and a report of what the window was told. An exception
-part-way through `acMain` or `onRender` shows up in AC as a window that
-ignores everything the app asked for, because the calls after it never
-happened — this is what catches that before the game does.
+Nyt kuvat ovat valmiit.
 
-## Still to settle
+> Jos komento `python` ei toimi, kokeile komentoa `py`.
 
-- `map.ini` key names. The projection is `pixel = (world + OFFSET) / SCALE`,
-  and the parser picks the keys by name out of whatever the file holds; one
-  real `data/map.ini` would let it be pinned rather than sniffed.
-- `WEAR_FRESH` / `WEAR_DEAD` / `DAMAGE_FULL`. The app logs the raw values
-  behind each ring source the first time it reads one; set the constants
-  from those lines.
-- `TURBO` fills as a fraction of the car's own `maxTurboBoost`, which needs
-  no unit. A readout in psi would need AC's unit for `turboBoost` pinned
-  first.
-- The timing column is in the mini font. Whiplash prints it in `FONT6.BM`,
-  with its own character table, and `ShowATime` spaces the digits by hand
-  (9 panel pixels apart, 3 for a colon). Baking that font would make the
-  column retail-exact.
+## Vaihe 3: Kopioi kansiot peliin
+
+Etsi Assetto Corsan kansio. Se on yleensä täällä:
+
+```
+C:\Program Files (x86)\Steam\steamapps\common\assettocorsa
+```
+
+Kopioi **kaksi** kansiota:
+
+- `apps\python\whiplash_hud`
+- `apps\python\whiplash_setup`
+
+Kopioi ne tänne:
+
+```
+assettocorsa\apps\python\
+```
+
+**Molemmat kansiot pitää kopioida.** Setup-ohjelma etsii HUD-ohjelmaa
+vierestään. Jos kopioit vain toisen, se ei toimi.
+
+## Vaihe 4: Laita ohjelmat päälle
+
+1. Käynnistä Assetto Corsa.
+2. Mene kohtaan **Settings → General**. Etsi lista **UI Modules**.
+3. Laita rasti kohtiin **Whiplash HUD** ja **Whiplash HUD Setup**.
+4. Mene radalle.
+5. Vie hiiri näytön **oikeaan reunaan**. Palkki tulee näkyviin.
+6. Paina molempien ohjelmien kuvakkeita.
+
+> Jos käytät Content Manageria, ohjelmat laitetaan päälle kohdassa
+> **Settings → Assetto Corsa → Apps**.
+
+## Vaihe 5: Säädä koko
+
+HUD-ikkunassa ei ole nappeja. Kaikki säädöt ovat **Whiplash HUD Setup**
+-ikkunassa. Siinä on neljä riviä:
+
+| Rivi | Mitä se tekee |
+| --- | --- |
+| **SCREEN** | HUD-ikkunan koko. **Laita tähän näyttösi tarkkuus.** |
+| **SIZE** | Kuvien koko. Jätä tähän `AUTO`. |
+| **RING** | Mitä mittari näyttää: renkaat, vauriot, bensa tai turbo. |
+| **SPEED** | `MPH` tai `KMH`. |
+
+**SCREEN on tärkein rivi.** Paina `-` ja `+` -nappeja, kunnes SCREEN on sama
+kuin näyttösi tarkkuus. Esimerkiksi `1920x1080`.
+
+Jos SCREEN on väärin, HUD on pienessä laatikossa näytön nurkassa.
+
+Muutokset näkyvät heti. Peliä ei tarvitse käynnistää uudelleen.
+
+## Jos jokin ei toimi
+
+**HUD ei näy ollenkaan.**
+Avaa tiedosto `Documents\Assetto Corsa\logs\py_log.txt`. Etsi sieltä sanaa
+`Whiplash`. Siellä lukee, mikä meni vikaan.
+
+**HUD näkyy, mutta kuvia ei ole.**
+Vaihe 2 ei onnistunut. Katso, että kansiossa
+`assettocorsa\apps\python\whiplash_hud\tex` on kansiot `x2`, `x3`, `x4` ja
+`x6`.
+
+**HUD on pienessä laatikossa nurkassa.**
+SCREEN on väärin. Katso vaihe 5.
+
+**Teksti ja mittarit ovat sumeita.**
+SIZE on eri kuin mikään tehty koko. Laita SIZE takaisin `AUTO`-asentoon.
+
+---
+
+# IN ENGLISH
+
+The art does not come with this. You bake it from your own copy of Whiplash
+— that is step 2, and you only do it once.
+
+## What you need
+
+1. **Assetto Corsa.**
+2. **Whiplash (Fatal Racing) game files** — specifically its **FATDATA**
+   folder.
+3. **Python 3**, from python.org. Tick **"Add Python to PATH"** when you
+   install it.
+
+FATDATA must contain these four files:
+
+- `PANEL2.BM`
+- `MINITEXT.BM`
+- `PANCAR1.BM`
+- `PALETTE.PAL`
+
+## Step 1: Download this project
+
+On GitHub, press the green **Code** button and choose **Download ZIP**.
+Unzip it anywhere.
+
+## Step 2: Bake the art out of the game
+
+Open the folder you unzipped. It should contain `apps` and `tools`.
+
+Type `cmd` into Explorer's address bar and press Enter. A command prompt
+opens in that folder.
+
+Type this **on one line**:
+
+```
+python tools\bake.py "C:\path\to\FATDATA" apps\python\whiplash_hud\tex 2 3 4 6
+```
+
+Put the path to your own FATDATA folder between the quotes.
+
+`2 3 4 6` are sizes, in screen pixels per panel pixel. The baker writes all
+four, and you switch between them in the game. Don't drop them: the art is
+enlarged here rather than in AC, because AC has no way to turn texture
+filtering off, so each size has to exist as its own set of textures.
+
+When it finishes it prints:
+
+```
+145 textures at 2x in apps\python\whiplash_hud\tex\x2
+145 textures at 3x in apps\python\whiplash_hud\tex\x3
+145 textures at 4x in apps\python\whiplash_hud\tex\x4
+145 textures at 6x in apps\python\whiplash_hud\tex\x6
+```
+
+> If `python` isn't recognised, try `py` instead.
+
+## Step 3: Copy the folders into the game
+
+Find your Assetto Corsa folder, usually:
+
+```
+C:\Program Files (x86)\Steam\steamapps\common\assettocorsa
+```
+
+Copy **both** of these:
+
+- `apps\python\whiplash_hud`
+- `apps\python\whiplash_setup`
+
+into:
+
+```
+assettocorsa\apps\python\
+```
+
+Both are needed. The setup app looks for the HUD beside itself.
+
+## Step 4: Turn the apps on
+
+1. Start Assetto Corsa.
+2. **Settings → General**, find the **UI Modules** list.
+3. Tick **Whiplash HUD** and **Whiplash HUD Setup**.
+4. Go out on track.
+5. Move the mouse to the **right edge** of the screen to open the app bar.
+6. Click both apps' icons.
+
+> With Content Manager, apps are enabled under
+> **Settings → Assetto Corsa → Apps**.
+
+## Step 5: Set the size
+
+The HUD has no buttons on it — it is a transparent overlay with its title
+bar hidden. Everything is set from **Whiplash HUD Setup**:
+
+| Row | What it does |
+| --- | --- |
+| **SCREEN** | the HUD window's size. **Set this to your display's resolution.** |
+| **SIZE** | which baked set to draw. Leave it on `AUTO`. |
+| **RING** | what the ring reads: tyres, damage, fuel or turbo. |
+| **SPEED** | `MPH` or `KMH`. |
+
+**SCREEN first.** The panel anchors to the corners of the HUD's own window,
+so until that window matches your display, the whole panel sits in a small
+box in one corner. Press `-` and `+` until it reads your resolution.
+
+There is no automatic fit: AC's Python API has no call that reports the
+screen size. The setup app does read AC's own `cfg\video.ini` and add what
+it finds to the list, so your resolution is usually already there.
+
+Changes apply immediately — the HUD re-reads its settings twice a second.
+No restart.
+
+## If something is wrong
+
+**Nothing appears at all.**
+Open `Documents\Assetto Corsa\logs\py_log.txt` and search for `Whiplash`.
+The app logs its build and what it could not find.
+
+**The HUD is there but there is no art.**
+Step 2 did not finish. Check that
+`assettocorsa\apps\python\whiplash_hud\tex` contains `x2`, `x3`, `x4` and
+`x6` folders.
+
+**The panel sits in a small box in a corner.**
+SCREEN is wrong. See step 5.
+
+**Text and gauges look blurry.**
+SIZE is set to a scale you did not bake. Put it back to `AUTO`.

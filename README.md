@@ -35,16 +35,15 @@ Two apps:
    python3 tools/bake.py /path/to/FATDATA apps/python/whiplash_hud/tex 2 3 4 6
    ```
 
-   The numbers are how many screen pixels to a panel pixel. Each one is
+   The numbers at the end select the scales of HUD to generate. Each one is
    baked into its own folder — `tex/x2`, `tex/x3` and so on — and the HUD
-   draws from one of them. 3 or 4 suits 1080p, 6 or 8 a 4K screen.
+   draws from one of them. 3 or 4 for 1080p, 6 or 8 for 4K screen.
 
    The art is enlarged here, with nearest neighbour, because AC has no way
-   to turn texture filtering off: the app then draws every sprite at exactly
+   to turn texture filtering off for hud elements: the app then draws every sprite at exactly
    its own size, one texel to one screen pixel, and nothing gets
    interpolated. That is also why the size is changed by switching folders
-   rather than by scaling a texture — scaling one in the game is what makes
-   the text go soft. Four scales is 145 PNGs each, about 2.5 MB in total.
+   rather than by scaling a texture — scaling the hud ingame softens the image. Four scales is 145 PNGs each, about 2.5 MB in total.
 
 2. Copy **both** `apps/python/whiplash_hud/` and
    `apps/python/whiplash_setup/` into your AC install's `apps/python/`

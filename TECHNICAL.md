@@ -254,8 +254,8 @@ times, world position and normalised spline position.
 **Shared memory**, via `third_party/sim_info.py` (Rombik's, `mmap` +
 `ctypes`), gives everything AC's Python API does not: `maxRpm`, `tyreWear`,
 `tyreCoreTemperature`, `carDamage`, `fuel`/`maxFuel`,
-`turboBoost`/`maxTurboBoost`. It is imported in a `try`, and if it is missing the HUD still runs — the ring just stays
-grey.
+`turboBoost`/`maxTurboBoost`. It is imported in a `try`, and if it is
+missing the HUD still runs — the ring just stays grey.
 
 ### Revs
 

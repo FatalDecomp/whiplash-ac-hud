@@ -24,7 +24,7 @@ import ac
 import acsys
 
 APP_NAME = "Whiplash HUD"
-BUILD = "2026-10-13 21:40"      # bumped every build, so the log says which copy is live
+BUILD = "2026-10-14 22:30"      # bumped every build, so the log says which copy is live
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEX = os.path.join(HERE, "tex")
 
@@ -92,14 +92,47 @@ RING_LEVELS = 13
 # damage but hardly anyone runs it, so it reads tyre life by default. Each
 # source is turned into one 0..1 fraction, because the ring is thirteen
 # zones that coloured up as the car got worse -- it has no numbers on it.
-METERS = ("TYRES", "DAMAGE", "FUEL", "TURBO")
+METERS = ("TYRES", "TEMP", "PRESSURE", "DAMAGE", "FUEL", "TURBO")
 
 # The ends of each scale. The app logs the raw values the first time it
 # reads a source, so these can be pinned from a real session rather than
-# assumed: if AC counts tyre wear up from zero instead of down from a
-# hundred, the two swap and nothing else changes.
+# assumed.
+#
+# tyreWear is not a percentage of tread left. It is the grip the tyre has
+# left off its WEAR_CURVE in tyres.ini: 100 when new, and a tyre is done by
+# the low nineties. Read across 100..0 a whole stint moves the ring by a
+# few percent, which rounds to no zones at all -- so the ring sat grey.
 WEAR_FRESH = 100.0
-WEAR_DEAD = 0.0
+WEAR_DEAD = 94.0
+# The ring is a traffic light, and the sprite says where its colours change:
+# zones 1-4 are green (palette 255, 254, 253, 252), 5-8 amber (203, 171, 170,
+# 169) and 9-13 red (231, 230, 229, 228, 227).
+#
+# Wear, damage and fuel all mean "worse as it fills", so they run straight up
+# it and the colours come out right on their own. Temperature does not: a
+# tyre in its working window is *good*, and good has to read green. A plain
+# cold-to-hot line cannot do that -- green is only the first third of the
+# ring, so a working tyre lands in the amber or the red -- so temperature is
+# bent to the bands instead, a stop at the top of each.
+GREEN_TOP = 4          # zones, read off the dial's own palette indices
+AMBER_TOP = 8
+TEMP_COLD = 50.0       # under this the ring is empty
+TEMP_GOOD = 95.0       # top of the green: the tyre is in its window
+TEMP_WARM = 110.0      # top of the amber: getting hot
+TEMP_HOT = 130.0       # full red: cooking
+
+# Pressure is the other source with a good state that is not zero, and it is
+# two-sided: under and over are both wrong. So the ring reads how far from
+# ideal the worst tyre is, in either direction, against the same bands --
+# green while it is close, amber drifting, red a long way off.
+#
+# "Ideal" is the car's own, out of its tyres.ini, so green means the pressure
+# that car was built around rather than a number chosen here. These are the
+# widths of the bands around it, in whatever unit the two agree on.
+PRESSURE_GOOD = 1.0    # within this of ideal, the ring stays green
+PRESSURE_WARN = 3.0    # ...and this is the top of the amber
+PRESSURE_BAD = 8.0     # this far out is a full red ring
+PRESSURE_IDEAL = 26.0  # only used when the car's tyres.ini cannot be read
 DAMAGE_FULL = 100.0            # what counts as a wrecked panel in carDamage
 
 MARGIN = 0             # extra panel pixels in from the window's edges; the
@@ -125,7 +158,8 @@ def _read_config():
 
     SCALE  0 follows the window, otherwise the baked set to draw from
     UNITS  MPH or KMH
-    METER  what the ring reads: TYRES, DAMAGE, FUEL or TURBO
+    METER  what the ring reads: TYRES, TEMP, PRESSURE, DAMAGE, FUEL,
+           or TURBO
     MARGIN extra panel pixels in from each edge
     """
     path = os.path.join(HERE, "config.ini")
@@ -415,6 +449,21 @@ def _meter():
             if not wear or not span:
                 return None
             return (WEAR_FRESH - min(wear)) / span
+        if source == "TEMP":
+            temps = [float(t) for t in info.physics.tyreCoreTemperature]
+            _log_once("tyreCoreTemperature", temps)
+            if not temps:
+                return None
+            _log_peak(max(temps))
+            return _temp_fill(max(temps))
+        if source == "PRESSURE":
+            psi = [float(p) for p in info.physics.wheelsPressure]
+            if not psi:
+                return None
+            ideal = _tyres.pick(getattr(info.graphics, "tyreCompound", ""))
+            _log_once("wheelsPressure", (psi, "ideal %.2f" % ideal))
+            worst = max(psi, key=lambda p: abs(p - ideal))
+            return _pressure_fill(worst, ideal)
         if source == "DAMAGE":
             damage = [float(d) for d in info.physics.carDamage]
             _log_once("carDamage", damage)
@@ -434,6 +483,45 @@ def _meter():
     return None
 
 
+def _ramp(value, low, high, at_low, at_high):
+    """`value` across `low`..`high`, as a fill between two stops."""
+    if high <= low:
+        return at_low
+    return at_low + (value - low) / (high - low) * (at_high - at_low)
+
+
+def _temp_fill(temp):
+    """Tyre temperature onto the ring, bent so its colours mean something.
+
+    Three straight runs joined at the band edges: empty to the top of the
+    green by TEMP_GOOD, through the amber by TEMP_WARM, and into the red
+    from there. So a tyre in its window shows green however wide that window
+    is, and only overheating gets near the top.
+    """
+    green = float(GREEN_TOP) / RING_LEVELS
+    amber = float(AMBER_TOP) / RING_LEVELS
+    if temp <= TEMP_COLD:
+        return 0.0
+    if temp <= TEMP_GOOD:
+        return _ramp(temp, TEMP_COLD, TEMP_GOOD, 0.0, green)
+    if temp <= TEMP_WARM:
+        return _ramp(temp, TEMP_GOOD, TEMP_WARM, green, amber)
+    return _ramp(temp, TEMP_WARM, TEMP_HOT, amber, 1.0)
+
+
+def _log_peak(temp):
+    """The hottest the tyres have got, each time that climbs another ten
+    degrees. The reading logged at startup is a cold tyre, which says
+    nothing about where this car's working window actually sits -- these
+    lines are what the stops above can be set from.
+    """
+    step = int(temp // 10) * 10
+    if step > _state.get("peak_temp", 0):
+        _state["peak_temp"] = step
+        _log("tyres reached %.0f C -- ring at %d of %d zones"
+             % (temp, int(round(_temp_fill(temp) * RING_LEVELS)), RING_LEVELS))
+
+
 def _log_once(what, values):
     """The raw numbers behind a source, once, so its ends can be pinned from
     a real session instead of assumed."""
@@ -441,6 +529,110 @@ def _log_once(what, values):
     if what not in seen:
         seen[what] = True
         _log("%s reads %s" % (what, values))
+
+
+# --- the car's own tyre data ---------------------------------------------
+
+class TyreData(object):
+    """The ideal pressure for what is fitted, out of the car's tyres.ini.
+
+    `content/cars/<car>/data/tyres.ini` holds a section per compound with a
+    NAME and a PRESSURE_IDEAL, so the one matching `tyreCompound` is the
+    car's answer. As with map.ini the key is picked by name out of whatever
+    the file holds rather than assumed, and if nothing recognisable is there
+    the log says what was.
+
+    Most Kunos cars ship that folder packed into `data.acd` instead. That is
+    obfuscated and this does not touch it: the ring falls back to
+    PRESSURE_IDEAL and says so, so a car with unpacked data gets its own
+    number and the rest get a sensible one.
+    """
+
+    def __init__(self):
+        self.ideal = PRESSURE_IDEAL
+        self.ok = False
+        self.sections = {}
+
+    def load(self, car):
+        if not car:
+            return
+        root = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))
+        path = os.path.join(root, "content", "cars", car, "data", "tyres.ini")
+        if not os.path.exists(path):
+            _log("no tyres.ini at %s (packed in data.acd?) -- pressure reads "
+                 "against %.1f" % (path, PRESSURE_IDEAL))
+            return
+        section = ""
+        try:
+            handle = open(path, "r")
+            try:
+                for line in handle:
+                    line = line.split(";")[0].strip()
+                    if line.startswith("[") and line.endswith("]"):
+                        section = line[1:-1].upper()
+                    elif "=" in line and section:
+                        key, value = line.split("=", 1)
+                        self.sections.setdefault(section, {})[
+                            key.strip().upper()] = value.strip()
+            finally:
+                handle.close()
+        except Exception:
+            _log(traceback.format_exc())
+            return
+
+        found = [(name, body) for name, body in self.sections.items()
+                 if any("PRESSURE_IDEAL" in key for key in body)]
+        if not found:
+            _log("tyres.ini has no PRESSURE_IDEAL; its sections are: %s"
+                 % ", ".join(sorted(self.sections)))
+            return
+        self.ok = True
+        self.pick("")      # a sensible default until a compound is known
+
+    def pick(self, compound):
+        """The fitted compound's ideal, or the first front tyre's."""
+        if not self.ok:
+            return self.ideal
+
+        def ideal_of(body):
+            for key in body:
+                if "PRESSURE_IDEAL" in key:
+                    try:
+                        return float(body[key])
+                    except ValueError:
+                        return None
+            return None
+
+        best = None
+        for name in sorted(self.sections):
+            body = self.sections[name]
+            value = ideal_of(body)
+            if value is None:
+                continue
+            if best is None and name.startswith("FRONT"):
+                best = value
+            if compound and body.get("NAME", "").strip().lower() \
+                    == compound.strip().lower():
+                best = value
+                break
+        if best is not None:
+            self.ideal = best
+        return self.ideal
+
+
+_tyres = TyreData()
+
+
+def _pressure_fill(psi, ideal):
+    """How far from ideal, either way, onto the ring's colour bands."""
+    green = float(GREEN_TOP) / RING_LEVELS
+    amber = float(AMBER_TOP) / RING_LEVELS
+    off = abs(psi - ideal)
+    if off <= PRESSURE_GOOD:
+        return green
+    if off <= PRESSURE_WARN:
+        return _ramp(off, PRESSURE_GOOD, PRESSURE_WARN, green, amber)
+    return min(1.0, _ramp(off, PRESSURE_WARN, PRESSURE_BAD, amber, 1.0))
 
 
 # --- the track map -------------------------------------------------------
@@ -553,6 +745,7 @@ def acMain(version):
         _scale = _pick_scale(_config["height"])
         _load_tables(_scale)
         _map.load(ac.getTrackName(0), ac.getTrackConfiguration(0))
+        _tyres.load(info.static.carModel if info is not None else "")
         if info is None:
             _log("shared memory unavailable -- the ring will stay grey")
         return APP_NAME

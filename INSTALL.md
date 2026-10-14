@@ -108,7 +108,7 @@ HUD-ikkunassa ei ole nappeja. Kaikki säädöt ovat **Whiplash HUD Setup**
 | --- | --- |
 | **SCREEN** | HUD-ikkunan koko. **Laita tähän näyttösi tarkkuus.** |
 | **SIZE** | Kuvien koko. Jätä tähän `AUTO`. |
-| **RING** | Mitä mittari näyttää: renkaat, vauriot, bensa tai turbo. |
+| **RING** | Mitä mittari näyttää: renkaiden kuluminen, lämpö, paine, vauriot, bensa tai turbo. |
 | **SPEED** | `MPH` tai `KMH`. |
 
 **SCREEN on tärkein rivi.** Paina `-` ja `+` -nappeja, kunnes SCREEN on sama
@@ -235,7 +235,7 @@ bar hidden. Everything is set from **Whiplash HUD Setup**:
 | --- | --- |
 | **SCREEN** | the HUD window's size. **Set this to your display's resolution.** |
 | **SIZE** | which baked set to draw. Leave it on `AUTO`. |
-| **RING** | what the ring reads: tyres, damage, fuel or turbo. |
+| **RING** | what the ring reads: tyre life, temp, pressure, damage, fuel or turbo. |
 | **SPEED** | `MPH` or `KMH`. |
 
 **SCREEN first.** The panel anchors to the corners of the HUD's own window,

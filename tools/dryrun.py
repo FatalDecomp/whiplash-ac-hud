@@ -77,17 +77,23 @@ def fake_sim_info():
     class Physics(object):
         tyreWear = [100.0, 100.0, 100.0, 100.0]
         tyreCoreTemperature = [26.0, 26.0, 26.0, 26.0]
+        wheelsPressure = [26.5, 26.5, 26.4, 26.6]
         carDamage = [0.0] * 5
         fuel = 40.0
         turboBoost = 0.4
 
+    class Graphics(object):
+        tyreCompound = "Street"
+
     class Static(object):
+        carModel = "test_car"
         maxRpm = 8000
         maxFuel = 60.0
         maxTurboBoost = 1.2
 
     class Info(object):
         physics = Physics()
+        graphics = Graphics()
         static = Static()
 
     mod.info = Info()

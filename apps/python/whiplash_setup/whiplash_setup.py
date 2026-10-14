@@ -18,7 +18,7 @@ import traceback
 import ac
 
 APP_NAME = "Whiplash HUD Setup"
-BUILD = "2026-10-14 21:10"
+BUILD = "2026-10-14 22:30"
 HERE = os.path.dirname(os.path.abspath(__file__))
 HUD = os.path.join(os.path.dirname(HERE), "whiplash_hud")
 CONFIG = os.path.join(HUD, "config.ini")
@@ -33,9 +33,10 @@ SCREENS = [(1280, 720), (1366, 768), (1600, 900), (1920, 1080),
            (1920, 1200), (2560, 1080), (2560, 1440), (3440, 1440),
            (3840, 2160)]
 
-METERS = ("TYRES", "TEMP", "DAMAGE", "FUEL", "TURBO")
+METERS = ("TYRES", "TEMP", "PRESSURE", "DAMAGE", "FUEL", "TURBO")
 METER_SAYS = {"TYRES": "TYRE LIFE", "TEMP": "TYRE TEMP",
-              "DAMAGE": "DAMAGE", "FUEL": "FUEL USED", "TURBO": "TURBO"}
+              "PRESSURE": "TYRE PSI", "DAMAGE": "DAMAGE",
+              "FUEL": "FUEL USED", "TURBO": "TURBO"}
 UNITS = ("MPH", "KMH")
 
 # Laid out in a column: a caption, then the control it drives.
@@ -171,9 +172,9 @@ SCALE = %(scale)d
 ; MPH or KMH. Whiplash has art for both.
 UNITS = %(units)s
 
-; What the ring round the dial reads: TYRES, TEMP, DAMAGE, FUEL or TURBO.
-; It was Whiplash's damage meter -- thirteen zones that colour up as things get
-; worse -- so whatever it is pointed at fills it the same way.
+; What the ring round the dial reads: TYRES, TEMP, PRESSURE, DAMAGE, FUEL
+; or TURBO. It was Whiplash's damage meter -- thirteen zones that colour up
+; as things get worse -- so whatever it is pointed at fills it the same way.
 METER = %(meter)s
 
 ; Extra panel pixels in from each edge. The game's own insets are already in

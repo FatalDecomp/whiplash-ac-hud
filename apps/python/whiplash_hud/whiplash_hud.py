@@ -24,7 +24,7 @@ import ac
 import acsys
 
 APP_NAME = "Whiplash HUD"
-BUILD = "2026-10-14 19:30"      # bumped every build, so the log says which copy is live
+BUILD = "2026-10-14 21:10"      # bumped every build, so the log says which copy is live
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEX = os.path.join(HERE, "tex")
 
@@ -104,11 +104,22 @@ METERS = ("TYRES", "TEMP", "DAMAGE", "FUEL", "TURBO")
 # few percent, which rounds to no zones at all -- so the ring sat grey.
 WEAR_FRESH = 100.0
 WEAR_DEAD = 94.0
-# Core temperature, in degrees C, of the hottest tyre. Cold is roughly the
-# air, and most AC tyres work somewhere around 80-100, so a ring two-thirds
-# lit is a tyre in its window and a full one is a tyre cooking.
-TEMP_COLD = 20.0
-TEMP_HOT = 120.0
+# The ring is a traffic light, and the sprite says where its colours change:
+# zones 1-4 are green (palette 255, 254, 253, 252), 5-8 amber (203, 171, 170,
+# 169) and 9-13 red (231, 230, 229, 228, 227).
+#
+# Wear, damage and fuel all mean "worse as it fills", so they run straight up
+# it and the colours come out right on their own. Temperature does not: a
+# tyre in its working window is *good*, and good has to read green. A plain
+# cold-to-hot line cannot do that -- green is only the first third of the
+# ring, so a working tyre lands in the amber or the red -- so temperature is
+# bent to the bands instead, a stop at the top of each.
+GREEN_TOP = 4          # zones, read off the dial's own palette indices
+AMBER_TOP = 8
+TEMP_COLD = 50.0       # under this the ring is empty
+TEMP_GOOD = 95.0       # top of the green: the tyre is in its window
+TEMP_WARM = 110.0      # top of the amber: getting hot
+TEMP_HOT = 130.0       # full red: cooking
 DAMAGE_FULL = 100.0            # what counts as a wrecked panel in carDamage
 
 MARGIN = 0             # extra panel pixels in from the window's edges; the
@@ -427,10 +438,10 @@ def _meter():
         if source == "TEMP":
             temps = [float(t) for t in info.physics.tyreCoreTemperature]
             _log_once("tyreCoreTemperature", temps)
-            span = TEMP_HOT - TEMP_COLD
-            if not temps or not span:
+            if not temps:
                 return None
-            return (max(temps) - TEMP_COLD) / span
+            _log_peak(max(temps))
+            return _temp_fill(max(temps))
         if source == "DAMAGE":
             damage = [float(d) for d in info.physics.carDamage]
             _log_once("carDamage", damage)
@@ -448,6 +459,45 @@ def _meter():
     except Exception:
         _log(traceback.format_exc())
     return None
+
+
+def _ramp(value, low, high, at_low, at_high):
+    """`value` across `low`..`high`, as a fill between two stops."""
+    if high <= low:
+        return at_low
+    return at_low + (value - low) / (high - low) * (at_high - at_low)
+
+
+def _temp_fill(temp):
+    """Tyre temperature onto the ring, bent so its colours mean something.
+
+    Three straight runs joined at the band edges: empty to the top of the
+    green by TEMP_GOOD, through the amber by TEMP_WARM, and into the red
+    from there. So a tyre in its window shows green however wide that window
+    is, and only overheating gets near the top.
+    """
+    green = float(GREEN_TOP) / RING_LEVELS
+    amber = float(AMBER_TOP) / RING_LEVELS
+    if temp <= TEMP_COLD:
+        return 0.0
+    if temp <= TEMP_GOOD:
+        return _ramp(temp, TEMP_COLD, TEMP_GOOD, 0.0, green)
+    if temp <= TEMP_WARM:
+        return _ramp(temp, TEMP_GOOD, TEMP_WARM, green, amber)
+    return _ramp(temp, TEMP_WARM, TEMP_HOT, amber, 1.0)
+
+
+def _log_peak(temp):
+    """The hottest the tyres have got, each time that climbs another ten
+    degrees. The reading logged at startup is a cold tyre, which says
+    nothing about where this car's working window actually sits -- these
+    lines are what the stops above can be set from.
+    """
+    step = int(temp // 10) * 10
+    if step > _state.get("peak_temp", 0):
+        _state["peak_temp"] = step
+        _log("tyres reached %.0f C -- ring at %d of %d zones"
+             % (temp, int(round(_temp_fill(temp) * RING_LEVELS)), RING_LEVELS))
 
 
 def _log_once(what, values):

@@ -18,7 +18,7 @@ import traceback
 import ac
 
 APP_NAME = "Whiplash HUD Setup"
-BUILD = "2026-10-14 19:30"
+BUILD = "2026-10-14 21:10"
 HERE = os.path.dirname(os.path.abspath(__file__))
 HUD = os.path.join(os.path.dirname(HERE), "whiplash_hud")
 CONFIG = os.path.join(HUD, "config.ini")

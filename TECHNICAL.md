@@ -272,10 +272,23 @@ things get worse, which is the direction the damage meter ran:
 | `METER` | fraction |
 | --- | --- |
 | `TYRES` | worst tyre, across `WEAR_FRESH … WEAR_DEAD` |
-| `TEMP` | hottest tyre's core temperature, across `TEMP_COLD … TEMP_HOT` (°C) |
+| `TEMP` | hottest tyre's core temperature, bent to the ring's colour bands |
 | `DAMAGE` | worst of the five `carDamage` zones over `DAMAGE_FULL` |
 | `FUEL` | `1 - fuel / maxFuel`, so a full ring is an empty tank |
 | `TURBO` | `turboBoost / maxTurboBoost` |
+
+The ring's thirteen zones are a traffic light, and the dial sprite says
+where the colours change: **1–4 green**, **5–8 amber**, **9–13 red**, read
+off the palette indices `dam_remap` assigns to each zone.
+
+Wear, damage and fuel all mean "worse as it fills", so they run straight up
+the ring and the colours come out right on their own. **Temperature does
+not.** A tyre in its working window is *good*, and good has to read green —
+but green is only the first third of the ring, so any plain cold-to-hot line
+puts a working tyre in the amber or the red. `_temp_fill` bends it instead:
+three straight runs joined at the band edges, with a stop at the top of each
+(`TEMP_COLD`, `TEMP_GOOD`, `TEMP_WARM`, `TEMP_HOT`). A tyre in its window
+shows green however wide that window is, and only overheating climbs.
 
 `tyreWear` is not tread left. It is the grip the tyre still has off its
 `WEAR_CURVE` in `tyres.ini`: 100 when new, and worn out by the low nineties.
@@ -364,8 +377,11 @@ described in §1 — the silent half-run — before AC does.
 
 ## 10. What is still unpinned
 
-- `WEAR_FRESH` / `WEAR_DEAD` / `TEMP_COLD` / `TEMP_HOT` / `DAMAGE_FULL`.
-  Set them from the `_log_once` lines in a real session.
+- `WEAR_FRESH` / `WEAR_DEAD` / `DAMAGE_FULL`, and the four temperature
+  stops. Set them from the log: `_log_once` prints the raw values behind a
+  source the first time it is read, and `_log_peak` prints the hottest the
+  tyres have got each time that climbs another ten degrees — the startup
+  reading is a cold tyre and says nothing about where a car's window sits.
 - `TURBO` fills as a fraction of `maxTurboBoost`, which needs no unit. A
   readout in psi would need AC's unit for `turboBoost` pinned first.
 - `map.ini` key names are sniffed, not known. One real file would settle it.

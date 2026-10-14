@@ -76,6 +76,7 @@ def fake_sim_info():
 
     class Physics(object):
         tyreWear = [100.0, 100.0, 100.0, 100.0]
+        tyreCoreTemperature = [26.0, 26.0, 26.0, 26.0]
         carDamage = [0.0] * 5
         fuel = 40.0
         turboBoost = 0.4

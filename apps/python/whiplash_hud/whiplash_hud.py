@@ -24,7 +24,7 @@ import ac
 import acsys
 
 APP_NAME = "Whiplash HUD"
-BUILD = "2026-10-13 21:40"      # bumped every build, so the log says which copy is live
+BUILD = "2026-10-14 19:30"      # bumped every build, so the log says which copy is live
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEX = os.path.join(HERE, "tex")
 
@@ -92,14 +92,23 @@ RING_LEVELS = 13
 # damage but hardly anyone runs it, so it reads tyre life by default. Each
 # source is turned into one 0..1 fraction, because the ring is thirteen
 # zones that coloured up as the car got worse -- it has no numbers on it.
-METERS = ("TYRES", "DAMAGE", "FUEL", "TURBO")
+METERS = ("TYRES", "TEMP", "DAMAGE", "FUEL", "TURBO")
 
 # The ends of each scale. The app logs the raw values the first time it
 # reads a source, so these can be pinned from a real session rather than
-# assumed: if AC counts tyre wear up from zero instead of down from a
-# hundred, the two swap and nothing else changes.
+# assumed.
+#
+# tyreWear is not a percentage of tread left. It is the grip the tyre has
+# left off its WEAR_CURVE in tyres.ini: 100 when new, and a tyre is done by
+# the low nineties. Read across 100..0 a whole stint moves the ring by a
+# few percent, which rounds to no zones at all -- so the ring sat grey.
 WEAR_FRESH = 100.0
-WEAR_DEAD = 0.0
+WEAR_DEAD = 94.0
+# Core temperature, in degrees C, of the hottest tyre. Cold is roughly the
+# air, and most AC tyres work somewhere around 80-100, so a ring two-thirds
+# lit is a tyre in its window and a full one is a tyre cooking.
+TEMP_COLD = 20.0
+TEMP_HOT = 120.0
 DAMAGE_FULL = 100.0            # what counts as a wrecked panel in carDamage
 
 MARGIN = 0             # extra panel pixels in from the window's edges; the
@@ -125,7 +134,7 @@ def _read_config():
 
     SCALE  0 follows the window, otherwise the baked set to draw from
     UNITS  MPH or KMH
-    METER  what the ring reads: TYRES, DAMAGE, FUEL or TURBO
+    METER  what the ring reads: TYRES, TEMP, DAMAGE, FUEL or TURBO
     MARGIN extra panel pixels in from each edge
     """
     path = os.path.join(HERE, "config.ini")
@@ -415,6 +424,13 @@ def _meter():
             if not wear or not span:
                 return None
             return (WEAR_FRESH - min(wear)) / span
+        if source == "TEMP":
+            temps = [float(t) for t in info.physics.tyreCoreTemperature]
+            _log_once("tyreCoreTemperature", temps)
+            span = TEMP_HOT - TEMP_COLD
+            if not temps or not span:
+                return None
+            return (max(temps) - TEMP_COLD) / span
         if source == "DAMAGE":
             damage = [float(d) for d in info.physics.carDamage]
             _log_once("carDamage", damage)

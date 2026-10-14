@@ -253,8 +253,8 @@ times, world position and normalised spline position.
 
 **Shared memory**, via `third_party/sim_info.py` (Rombik's, `mmap` +
 `ctypes`), gives everything AC's Python API does not: `maxRpm`, `tyreWear`,
-`carDamage`, `fuel`/`maxFuel`, `turboBoost`/`maxTurboBoost`. It is imported
-in a `try`, and if it is missing the HUD still runs — the ring just stays
+`tyreCoreTemperature`, `carDamage`, `fuel`/`maxFuel`,
+`turboBoost`/`maxTurboBoost`. It is imported in a `try`, and if it is missing the HUD still runs — the ring just stays
 grey.
 
 ### Revs
@@ -272,9 +272,15 @@ things get worse, which is the direction the damage meter ran:
 | `METER` | fraction |
 | --- | --- |
 | `TYRES` | worst tyre, across `WEAR_FRESH … WEAR_DEAD` |
+| `TEMP` | hottest tyre's core temperature, across `TEMP_COLD … TEMP_HOT` (°C) |
 | `DAMAGE` | worst of the five `carDamage` zones over `DAMAGE_FULL` |
 | `FUEL` | `1 - fuel / maxFuel`, so a full ring is an empty tank |
 | `TURBO` | `turboBoost / maxTurboBoost` |
+
+`tyreWear` is not tread left. It is the grip the tyre still has off its
+`WEAR_CURVE` in `tyres.ini`: 100 when new, and worn out by the low nineties.
+So `WEAR_DEAD` is 94, not 0 — read across 100…0, a whole stint moved the
+ring by a few percent and rounded to no zones at all.
 
 `_log_once` prints the raw numbers behind a source the first time it is read,
 so the constants can be pinned from a real session instead of assumed.
@@ -358,8 +364,8 @@ described in §1 — the silent half-run — before AC does.
 
 ## 10. What is still unpinned
 
-- `WEAR_FRESH` / `WEAR_DEAD` / `DAMAGE_FULL`. Set them from the `_log_once`
-  lines in a real session.
+- `WEAR_FRESH` / `WEAR_DEAD` / `TEMP_COLD` / `TEMP_HOT` / `DAMAGE_FULL`.
+  Set them from the `_log_once` lines in a real session.
 - `TURBO` fills as a fraction of `maxTurboBoost`, which needs no unit. A
   readout in psi would need AC's unit for `turboBoost` pinned first.
 - `map.ini` key names are sniffed, not known. One real file would settle it.

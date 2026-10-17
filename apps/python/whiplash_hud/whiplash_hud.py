@@ -24,7 +24,7 @@ import ac
 import acsys
 
 APP_NAME = "Whiplash HUD"
-BUILD = "2026-10-14 22:30"      # bumped every build, so the log says which copy is live
+BUILD = "2026-10-17 16:05"      # bumped every build, so the log says which copy is live
 HERE = os.path.dirname(os.path.abspath(__file__))
 TEX = os.path.join(HERE, "tex")
 
@@ -33,6 +33,12 @@ try:
     from sim_info import info
 except Exception:
     info = None
+
+# sim_info's own AC_SESSION_TYPE: practice 0, qualify 1, race 2. Kept here
+# rather than imported alongside `info`, because importing a second name
+# makes the import brittle -- a copy of sim_info.py without it would fail
+# the whole import and take revs, the ring and everything else with it.
+AC_RACE = 2
 
 
 # =========================================================================
@@ -834,15 +840,36 @@ def acUpdate(deltaT):
         _log(traceback.format_exc())
 
 
-def _standings():
-    """Every car in the session, in the order they are in right now.
+def _ranked_on_track():
+    """Whether this session is ranked by who is in front, or by the clock.
 
-    The order comes from `getCarRealTimeLeaderboardPosition`, which the AC
-    documentation calls the car's position "in real-time".
-    `getCarLeaderboardPosition` is the official standing instead, and in a
-    race that only settles as cars cross the line -- overtake someone
-    mid-lap and the number does not move until the lap does. Whiplash's own
-    byRacePosition is live, so this is the one that matches it.
+    A race is the first: `getCarRealTimeLeaderboardPosition` is the live
+    track order, which is what makes the plate move the moment you pass
+    someone. Practice and qualifying are the second -- the sheet is ordered
+    by best lap, and the car physically ahead of you may be nowhere near you
+    on it. Reading track order there puts whoever is furthest round the lap
+    at the top, which is how a ninth place came out as first.
+
+    `getCarLeaderboardPosition` is the official standing, so it is the right
+    one for those sessions. Without shared memory there is no session type
+    to read, and the standing is the safer of the two: lap-late in a race
+    rather than wrong outright in practice.
+    """
+    if info is None:
+        return False
+    try:
+        session = int(info.graphics.session)
+    except Exception:
+        return False
+    _log_once("session", session)
+    return session == AC_RACE
+
+
+def _standings():
+    """Every car in the session, in the order the session itself ranks them.
+
+    Which call gives that order depends on the session -- see
+    `_ranked_on_track`.
 
     `getCarsCount` is the session's maximum number of cars, not how many are
     in it, so the empty slots go: left in, they sit in the order and push
@@ -854,9 +881,10 @@ def _standings():
     if 0 not in cars:
         cars = list(range(count))
 
+    on_track = _ranked_on_track()
     field = []
     for car in cars:
-        place = ac.getCarRealTimeLeaderboardPosition(car)
+        place = ac.getCarRealTimeLeaderboardPosition(car) if on_track else -1
         if place is None or place < 0:
             place = ac.getCarLeaderboardPosition(car)
         field.append((place, car))
@@ -885,14 +913,36 @@ def _driver(car):
     return (ac.getDriverName(car) or "") if car >= 0 else ""
 
 
+def _lap_gaps():
+    """Best-lap differences to the two cars either side of us.
+
+    What INFRONT and BEHIND mean in practice and qualifying: the sheet is
+    ordered by best lap, so the number that matters is how much lap time
+    separates us, not how far apart we happen to be on track.
+    """
+    mine = ac.getCarState(0, acsys.CS.BestLap) / 1000.0
+
+    def delta(car):
+        if car < 0 or mine <= 0:
+            return None
+        theirs = ac.getCarState(car, acsys.CS.BestLap) / 1000.0
+        return abs(mine - theirs) if theirs > 0 else None
+
+    return delta(_state["ahead_idx"]), delta(_state["behind_idx"])
+
+
 def _gaps(cars):
     """Time to the car ahead of us and the car behind us in the standings.
 
-    AC hands out positions on the track, not gaps, so this is a lap time
-    times the distance round the lap between us and that car: right on a
-    steady lap and optimistic under braking, which is what a gap readout
-    always is.
+    In a race that is a gap on track: a lap time times the distance round
+    the lap between us and that car, right on a steady lap and optimistic
+    under braking, which is what a gap readout always is. In practice and
+    qualifying a track gap means nothing, because the sheet is not ordered
+    by who is in front -- there the lap times are compared instead.
     """
+    if not _ranked_on_track():
+        return _lap_gaps()
+
     spline = {}
     for idx, _wx, _wz, at in cars:
         spline[idx] = at

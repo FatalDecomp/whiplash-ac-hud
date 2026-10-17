@@ -321,9 +321,23 @@ This one has a trap in it. AC has two calls:
 - `getCarRealTimeLeaderboardPosition` — the **live order**, which is how
   Whiplash's own `byRacePosition` behaves.
 
-`_standings()` uses the live one, falls back to the standing if it has no
-answer, and **sorts the field** rather than trusting the number. `_place_in`
-then counts along that order. Two reasons:
+**Which one is right depends on the session**, and getting that wrong is
+how a ninth place on a practice server came out as first. A race is ranked
+by who is in front, so the live order is the one that matches. Practice and
+qualifying are ranked by best lap, and the car physically ahead of you may
+be nowhere near you on the sheet — reading track order there puts whoever is
+furthest round the lap at the top. `_ranked_on_track()` reads
+`info.graphics.session` (`AC_RACE` is 2) and picks accordingly; with no
+shared memory it answers "not a race", the standing being lap-late in a race
+rather than wrong outright in practice.
+
+The same split decides what INFRONT and BEHIND mean. In a race they are
+track gaps; in practice and qualifying `_lap_gaps` compares best lap times
+instead, because a track gap to someone on a different part of the circuit
+says nothing about the order you are in.
+
+`_standings()` sorts the field by whichever order applies rather than
+trusting the number, and `_place_in` counts along that order. Two reasons:
 
 - the place and the two names come from one order, so the plate's number and
   the names on its bars can never disagree;

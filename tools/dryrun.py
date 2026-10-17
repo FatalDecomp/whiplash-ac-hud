@@ -84,6 +84,7 @@ def fake_sim_info():
 
     class Graphics(object):
         tyreCompound = "Street"
+        session = 2            # AC_RACE
 
     class Static(object):
         carModel = "test_car"
